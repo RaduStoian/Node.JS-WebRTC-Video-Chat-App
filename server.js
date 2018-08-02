@@ -1,6 +1,6 @@
 var express = require('express.io');
 var app = express();
-app.https().io();
+app.http().io();
 var PORT = process.env.PORT || 8080;
 console.log('server started on port ' + PORT);
 
