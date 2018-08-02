@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+
+    <head>
+        <title>OR take 2</title>
+        
+<link rel="stylesheet" type="text/css" href="styles.css">
+ <script src="http://cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script>
+        
+        
+        
+    </head>
+    <body>
+        
+    <h2>Hello WebRTC?!?!?!?</h2>
+    
+        
+    <!-- Commented out Camera Selector
+    <div>
+        Video: <select id="camera"></select>
+        
+    </div> 
+         Commented out Camera Selector-->
+        
+    <video autoplay id="myVideoTag" style="border:5px solid pink"></video>
+      <video autoplay id="theirVideoTag" style="border:5px solid pink"></video>
+  
+         <div>
+            <label>Your Name</label> 
+            <input id="myName" type="text"/>
+            <label>Message</label> 
+            <input id="myMessage" type="text"/>
+            <input id="sendMessage" type="submit"/>
+            <div id="chatArea">Message Output:<br/></div>
+             <div id="singalingArea">Signaling Messages:</br></div>
+        </div>
+        
+        
+        
+        
+        
+        
+        <script>
+            var myVideoArea = document.querySelector('#myVideoTag');
+             var theirVideoArea = document.querySelector('#theirVideoTag');
+
+             
+        var myName = document.querySelector("#myName");
+        var myMessage = document.querySelector("#myMessage");
+        var sendMessage = document.querySelector("#sendMessage");
+        var mchatArea = document.querySelector("#chatArea");
+        var singalingArea = document.querySelector("#singalingArea");    
+        var ROOM = "chat";
+            var SIGNAL_ROOM = "signal_room";
+            
+            var configuration = {'iceServers': [{
+                    'url': 'stun:stun1.l.google.com:19305'
+                }]
+            };
+            var rtcPeerConn;
+ /* Camera Selector
+        var videoSelect = document.querySelector('#camera');
+        
+        MediaStreamTrack.getSources(getCameras);
+            
+         videoSelect.onchange = startStream;  
+        
+            
+     function getCameras(sourceInfos) {
+         for (var i = 0; i !== sourceInfos.length; ++i) {
+               var sourceInfo = soureInfos[i];
+                var option = document.createElement('option');
+             option.value = sourceInfo.id;
+             if (sourceInfo.kind === 'video') { option.text = soureInfo.label || 'camera ' + (videoSelect.length +1);
+                videoSelect.appendChild(option);                               
+                 
+            }
+         }
+     }   
+            
+  Camera Selector END (NOT WORKING*/
+            
+            
+            
+            
+            
+            
+        
+            
+                io = io.connect();
+        io.emit('ready', {"chat_room": ROOM, "signal_room": SIGNAL_ROOM});
+        
+            
+            io.emit('signal', {"type":"user_here", "message":"Are you ready for a call?", "room":SIGNAL_ROOM});
+            
+            
+            
+            io.on('signaling_message', function(data) {
+                displaySignalingMessage("Signal received: " + data.type);
+                
+                  
+            if (!rtcPeerConn) 
+                startSignaling();
+              
+                
+                if (data.type != "user_here") {
+                    var message = JSON.parse(data.message);
+                    if (message.sdp) {
+                        rtcPeerConn.setRemoteDescription(new RTCSessionDescription(message.sdp), function() {
+                            if (rtcPeerConn.remoteDescription.type = 'offer') {
+                                rtcPeerConn.createAnswer(sendLocalDesc, logError);
+                            }
+                        }, logError);
+                    }
+                    
+                    
+                    else {
+                        rtcPeerConn.addIceCandidate(new RTCIceCandidate(message.candidate));
+                    }
+                }
+                
+                     
+            });
+            
+            
+            
+            
+            
+            
+            // START FUNCTION HERE!  *************************************************
+            
+            
+            
+          
+            function startSignaling () {
+                displaySignalingMessage("starting signaling...");
+                
+                rtcPeerConn = new webkitRTCPeerConnection(configuration);
+                
+                rtcPeerConn.onicecandidate = function (evt) {
+                    if (evt.candidate)
+                        io.emit('signal',{"type":"ice candidate", "message":JSON.stringify({'candidate': evt.candidate}), "room":SIGNAL_ROOM});
+                    displaySignalingMessage("completed that ice candidate...");
+                };
+                
+                rtcPeerConn.onnegotiationneeded = function () {
+                    displaySignalingMessage("on negotiation called");
+                    rtcPeerConn.createOffer(sendLocalDesc, logError);
+                }
+                
+                rtcPeerConn.onaddstream = function (evt) {
+                    displaySignalingMessage("going to add their stream...");
+                    theirVideoArea.src = URL.createObjectURL(evt.stream);
+                };
+                
+                navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+                    navigator.getUserMedia({
+                        'audio': false,
+                        'video': true
+                    }, function (stream) {
+                        displaySignalingMessage("going to display my stream...");
+                        myVideoArea.src = URL.createObjectURL(stream);
+                        rtcPeerConn.addStream(stream);
+                    }, logError);
+                
+            }
+            
+            
+            
+            
+            
+            
+            
+            function sendLocalDesc(desc) {
+                rtcPeerConn.setLocalDescription(desc, function () {
+                    displaySignalingMessage("sending local description");
+                    io.emit('signal',{"type":"SDP", "message": JSON.stringify({ 'sdp':rtcPeerConn.localDescription}), "room":SIGNAL_ROOM});
+                }, logError);
+            }
+            
+            function logError(error) {
+                displaySignalingMessage(error.name + ': ' + error.message);
+            }
+            
+        io.on('announce', function(data) {
+            displayMessage(data.message);
+        });
+            
+        
+        io.on('message', function(data) {
+            displayMessage(data.author + ": " + data.message);
+        });
+            
+            
+             function displayMessage(message) {
+            chatArea.innerHTML = chatArea.innerHTML + "<br/>" + message; 
+            
+        }
+            
+         
+            
+        sendMessage.addEventListener('click', function(ev){ 
+           io.emit('send', {"author":myName.value, "message":myMessage.value, "room":ROOM});
+            
+            ev.preventDefault();
+        }, false);    
+        
+     
+                       function displaySignalingMessage(message) {
+            singalingArea.innerHTML = singalingArea.innerHTML + "<br/>" + message; 
+            
+        }
+ 
+        </script>
+        
+    </body>
+
+
+
+</html>
